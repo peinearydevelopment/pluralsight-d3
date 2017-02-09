@@ -1,0 +1,22 @@
+{
+  "name": "webpack-ts-d3",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/d3": "^4.4.0",
+    "source-map-loader": "^0.1.6",
+    "ts-loader": "^1.3.3",
+    "typescript": "^2.1.5",
+    "webpack": "^2.2.0"
+  },
+  "dependencies": {
+    "d3": "^4.4.1"
+  }
+}

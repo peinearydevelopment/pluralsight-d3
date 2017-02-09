@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "outDir": "./",
+    "sourceMap": true,
+    "target": "es5"
+  },
+  "include": [
+      "*.ts"
+  ],
+  "exclude": [
+      "data",
+      "jspm",
+      "no-modules",
+      "node_modules",
+      "webpack"
+  ]
+}
