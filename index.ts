@@ -46,19 +46,41 @@ barChartSvg.selectAll('rect')
            .attr('height', (dataitem: number) => dataitem * 4)
            .attr('width', barChartWidth / barChartDataset.length - barChartPadding)
            .attr('x', (dataitem: number, index: number) => index * (barChartWidth / barChartDataset.length))
-           .attr('y', (dataitem: number) => barChartHeight - (dataitem * 4));
+           .attr('y', (dataitem: number) => barChartHeight - (dataitem * 4))
+//  easiest path to a tooltip. doesn't add a lot of control though, so not usually the ideal route
+        //    .append('title')
+        //    .text((d) => d);
+            .on('mouseover', function (d) {
+                barChartSvg.append('text')
+                           .text(d)
+                           .attr('fill', '#FFF')
+                           .attr('font-family', 'sans-serif')
+                           .attr('font-size', 12)
+                           .attr('text-anchor', 'middle')
+                           .attr('x', () => {
+                               return parseFloat(d3.select(this).attr('x')) + (parseFloat(d3.select(this).attr('width')) / 2)
+                           })
+                           .attr('y', parseFloat(d3.select(this).attr('y')) + 12)
+                           .attr('id', 'tooltip');
+            })
+            .on('mouseout', () => {
+                d3.select('#tooltip').remove();
+            });
 
-barChartSvg.selectAll('text')
-           .data(barChartDataset)
-           .enter()
-           .append('text')
-           .text((dataitem: number) => dataitem)
-           .attr('fill', '#FFF')
-           .attr('font-family', 'sans-serif')
-           .attr('font-size', 12)
-           .attr('text-anchor', 'middle')
-           .attr('x', (dataitem: number, index: number) => index * (barChartWidth / barChartDataset.length) + (barChartWidth / barChartDataset.length - barChartPadding) / 2)
-           .attr('y', (dataitem: number) => barChartHeight - (dataitem * 4) + 14);
+// text label on bar itself
+// shows for all bars on render
+// barChartSvg.selectAll('text')
+//            .data(barChartDataset)
+//            .enter()
+//            .append('text')
+//            .text((dataitem: number) => dataitem)
+//            .attr('fill', '#FFF')
+//            .attr('font-family', 'sans-serif')
+//            .attr('font-size', 12)
+//            .attr('text-anchor', 'middle')
+//            .attr('x', (dataitem: number, index: number) => index * (barChartWidth / barChartDataset.length) + (barChartWidth / barChartDataset.length - barChartPadding) / 2)
+//            .attr('y', (dataitem: number) => barChartHeight - (dataitem * 4) + 14);
+
 // #endregion
 
 interface IMonthlySale
@@ -198,9 +220,9 @@ var scale = d3.scaleLinear()
               .domain([130, 350])
               .range([10, 100]);
 
-console.log(scale(300));
-console.log(scale(270));
-console.log(scale(150));
+// console.log(scale(300));
+// console.log(scale(270));
+// console.log(scale(150));
 
 // #region scaling data
 interface ILinks {
@@ -312,6 +334,11 @@ function axisBuildLine(dataset: IMonthlySalesByCategory): void {
     // console.log(minDate);
     // console.log(maxDate);
 
+    let tooltip = d3.select('body')
+                    .append('div')
+                    .attr('class', 'tooltip')
+                    .style('opacity', 0);
+
     let xScale = d3.scaleTime()
                    .domain([minDate, maxDate])
                    .range([axisPadding + 5, axisWidth - axisPadding]);
@@ -357,6 +384,29 @@ function axisBuildLine(dataset: IMonthlySalesByCategory): void {
        .attr('fill', 'none')
        .attr('stroke', 'purple')
        .attr('stroke-width', 2);
+
+    svg.selectAll('circle')
+       .data(dataset.monthlySales)
+       .enter()
+       .append('circle')
+       .attr('cx', (dataitem: IMonthlySale) => xScale(getDate(dataitem.month)))
+       .attr('cy', (dataitem: IMonthlySale) => yScale(dataitem.sales))
+       .attr('r', 4)
+       .attr('fill', '#666')
+       .attr('class', `circle-${dataset.category}`)
+       .on('mouseover', (d) => {
+           tooltip.transition()
+                  .duration(500)
+                  .style('opacity', .85);
+            tooltip.html(`<strong>Sales $${d.sales}K</strong>`)
+                   .style('left', `${d3.event.pageX}px`)
+                   .style('top', `${d3.event.pageY - 28}px`);
+       })
+       .on('mouseout', (d) => {
+           tooltip.transition()
+                  .duration(300)
+                  .style('opacity', 0);
+       });
 }
 
 function axisUpdateLine(dataset: IMonthlySalesByCategory): void {
@@ -374,7 +424,8 @@ function axisUpdateLine(dataset: IMonthlySalesByCategory): void {
                 //    .nice();
 
     let xAxisGenerator = d3.axisBottom(xScale)
-                           .tickFormat(d3.timeFormat('%b'));
+                           .tickFormat(d3.timeFormat('%b'))
+                           .ticks(dataset.monthlySales.length - 1);
 
     let yScale = d3.scaleLinear()
                    .domain([
@@ -391,26 +442,18 @@ function axisUpdateLine(dataset: IMonthlySalesByCategory): void {
                      .x((dataitem: IMonthlySale) => xScale(getDate(dataitem.month)))
                      .y((dataitem: IMonthlySale) => yScale(dataitem.sales));
 
-    let svg = d3.select('body')
-                .append('svg')
-                .attr('height', axisHeight)
-                .attr('width', axisWidth);
+    let svg = d3.select(`#svg-${dataset.category}`);
 
-    svg.append('g')
-       .call(yAxisGenerator)
-       .attr('class', 'axis')
-       .attr('transform', `translate(${axisPadding}, 0)`);
+    svg.selectAll('g.y-axis')
+       .call(yAxisGenerator);
 
-    svg.append('g')
-       .call(xAxisGenerator)
-       .attr('class', 'axis')
-       .attr('transform', `translate(0, ${axisHeight - axisPadding})`);
+    svg.selectAll('g.x-axis')
+       .call(xAxisGenerator);
 
-    svg.append('path')
-       .attr('d', axisLine(dataset.monthlySales))
-       .attr('fill', 'none')
-       .attr('stroke', 'purple')
-       .attr('stroke-width', 2);
+    svg.selectAll(`.path-${dataset.category}`)
+       .transition('bounce') // linear, elastic, circle, bounce
+       .duration(1000)
+       .attr('d', axisLine(dataset.monthlySales));
 }
 
 d3.json('https://api.github.com/repos/bsullins/d3js-resources/contents/monthlySalesbyCategoryMultiple.json',
@@ -428,6 +471,117 @@ d3.json('https://api.github.com/repos/bsullins/d3js-resources/contents/monthlySa
                 showHeader(dataset);
                 axisBuildLine(dataset);
             });
+
+            d3.select('#date-option')
+              .on('change', (d, i) => {
+                  let sel = +(<HTMLSelectElement> d3.select('#date-option')
+                                                    .node())
+                                                    .value;
+                  let decodedData = JSON.parse(window.atob(data.content));
+                  decodedData.contents.forEach((dataset: IMonthlySalesByCategory) => {
+                    dataset.monthlySales.splice(0, dataset.monthlySales.length - sel);
+                    axisUpdateLine(dataset);
+                  });
+              });
         }
 );
+
+// #endregion
+
+// #region Map
+// sample data can be found here: https://www.census.gov/geo/maps-data/data/tiger-cart-boundary.html
+// can be translated to geoJSON data here: converter.mygeodata.eu/vector
+let mapWidth = 500;
+let mapHeight = 300;
+
+let projection = d3.geoAlbersUsa()
+                   .translate([mapWidth / 2, mapHeight / 2])
+                   .scale(500);
+
+let mapPath = d3.geoPath()
+                .projection(projection);
+
+let mapSvg = d3.select('body')
+               .append('svg')
+               .attr('width', mapWidth)
+               .attr('height', mapHeight);
+
+// http://colorbrewer2.org
+let color = (<any>d3.scaleLinear())
+                   .range(['rgb(255,255,204)','rgb(217,240,163)','rgb(173,221,142)','rgb(120,198,121)','rgb(49,163,84)','rgb(0,104,55)']);
+d3.csv('data/state-sales.csv', (data) => {
+    color.domain([
+        0, d3.max(data, (d: any) => d.sales)
+    ]);
+
+    d3.json('data/us.json', (json) => {
+        for(let i = 0, l = data.length; i < l; i++) {
+            let salesState = data[i].state;
+            let salesVal = parseFloat(data[i].sales);
+
+            for(let j = 0, k = json.features.length; j < k; j++) {
+                let usState = json.features[j].properties.NAME;
+
+                if(salesState === usState) {
+                    json.features[j].properties.value = salesVal;
+                    break;
+                }
+            }
+        }
+
+        mapSvg.selectAll('path')
+            .data(json.features)
+            .enter()
+            .append('path')
+            .attr('d', mapPath)
+            .style('fill', (d: any) => {
+                let value = d.properties.value;
+                return value ? color(value) : '#666';
+            });
+    });
+});
+// #endregion
+
+// #region Map with Cities
+let cityMapWidth = 500;
+let cityMapHeight = 300;
+
+let cityMapProjection = d3.geoAlbersUsa()
+                          .translate([mapWidth / 2, mapHeight / 2])
+                          .scale(500);
+
+let cityMapPath = d3.geoPath()
+                    .projection(projection);
+
+let cityMapSvg = d3.select('body')
+                   .append('svg')
+                   .attr('width', mapWidth)
+                   .attr('height', mapHeight);
+
+// http://colorbrewer2.org
+d3.json('data/us.json', (json) => {
+    cityMapSvg.selectAll('path')
+        .data(json.features)
+        .enter()
+        .append('path')
+        .attr('d', cityMapPath)
+        .attr('fill', '#666');
+
+    d3.csv('data/sales-by-city.csv', (data) => {
+        cityMapSvg.selectAll('circle')
+                  .data(data)
+                  .enter()
+                  .append('circle')
+                  .attr('cx', (d: any) => {
+                      let a = cityMapProjection([d.lon, d.lat]);
+                      return a ? a[0] : null;
+                  })
+                  .attr('cy', (d: any) => {
+                      let a = cityMapProjection([d.lon, d.lat]);
+                      return a ? a[1] : null;
+                  })
+                  .attr('r', (d: any) => Math.sqrt(parseInt(d.sales) * 0.00005))
+                  .attr('fill', 'red');
+    });
+});
 // #endregion
